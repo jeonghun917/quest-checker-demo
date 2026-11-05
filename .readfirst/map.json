@@ -1,0 +1,130 @@
+{
+  "format": "readfirst/map@1",
+  "groups": [
+    {
+      "id": "checker",
+      "title": "checker.py: checks a text submission against a quest's acceptance criteria and sets the exit code",
+      "files": [
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "the checker against the summary quest, pass and fail"
+        }
+      ],
+      "risks": [
+        {
+          "text": "An unknown criterion type silently counts as failed (ok = False), so a new type in a quest fails every submission until checker.py handles it.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "check() reads quest[\"acceptance_criteria\"], c[\"type\"] and c[\"description\"] directly; a quest missing any of these raises KeyError instead of reporting a failure.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "Callers script against the exit code (0 only if every criterion passes) and the PASS/FAIL lines; changing either breaks anything that wraps checker.py.",
+          "files": [
+            "checker.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quests",
+      "title": "Quest definitions in JSON: a title plus acceptance_criteria that checker.py evaluates",
+      "files": [
+        "quests/**"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "summary.json is loaded and checked by the tests"
+        }
+      ],
+      "risks": [
+        {
+          "text": "Criterion \"type\" must be one of contains, max_chars, min_chars as handled in checker.py; any other value always fails.",
+          "files": [
+            "quests/**"
+          ]
+        },
+        {
+          "text": "tests/test_checker.py reads quests/summary.json and expects a 280-char limit and a \"Source:\" line; editing it breaks those tests. tagline.json has no test.",
+          "files": [
+            "quests/summary.json",
+            "quests/tagline.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root",
+      "title": "License and README describing the demo and how to run it",
+      "files": [
+        "LICENSE",
+        "README.md"
+      ],
+      "checks": [],
+      "risks": []
+    },
+    {
+      "id": "tests",
+      "title": "pytest tests for checker.py using the real quest files",
+      "files": [
+        "tests/**"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "the whole suite"
+        }
+      ],
+      "risks": [
+        {
+          "text": "A green pytest run says little about the tagline quest, min_chars or an unknown criterion type: only summary.json is exercised, so a broken tagline.json or new criterion type still passes.",
+          "files": [
+            "tests/test_checker.py"
+          ]
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "quest-has-criterion",
+      "rule": "Every quest must have at least one checkable acceptance criterion.",
+      "why": "A quest with none would pass every submission vacuously (all([]) is True), so nothing is actually checked. Nothing enforces this automatically: pytest only loads summary.json, so check any new or edited quest by hand.",
+      "files": [
+        "quests/**",
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "runs checker.py against summary.json; does not cover tagline.json, so review new quests by hand"
+        }
+      ]
+    },
+    {
+      "id": "criterion-types-in-checker",
+      "rule": "Every criterion type used in quests/ must be implemented in checker.py.",
+      "why": "Unhandled types always fail, so the quest becomes impossible to pass.",
+      "files": [
+        "quests/**",
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "runs checker.py against summary.json; does not cover tagline.json, so review new quests by hand"
+        }
+      ]
+    }
+  ],
+  "ignore": []
+}

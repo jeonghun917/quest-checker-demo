@@ -1,0 +1,164 @@
+{
+  "format": "readfirst/map@1",
+  "groups": [
+    {
+      "id": "checker",
+      "title": "checker.py: CLI and check() that grade a text submission against a quest's acceptance criteria",
+      "files": [
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "check() against the summary quest, pass and fail"
+        },
+        {
+          "run": "python checker.py quests/summary.json quests/tagline.json",
+          "why": "the CLI end to end on files in the repo (exit 0 only if all criteria pass; here it is expected to exit 1)"
+        }
+      ],
+      "risks": [
+        {
+          "text": "The CLI reads the submission with open().read(): no explicit encoding (platform default) and trailing newline/whitespace kept, so a file saved with a final newline counts one extra character in max_chars/min_chars and can fail a limit by one.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "An unknown criterion type silently becomes a FAIL (ok = False) rather than an error, so a typo in a quest file makes every submission fail with no explanation.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "check() indexes quest[\"acceptance_criteria\"], c[\"type\"] and c[\"description\"] directly: a missing field raises KeyError, and an empty criteria list yields no results, so the CLI's all([]) passes and exits 0 for any submission.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "Quest JSON and CLI args are not validated: a missing argument gives IndexError, and a missing 'value' on contains/max_chars/min_chars gives None, which raises TypeError at comparison.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "The criterion types (contains, max_chars, min_chars) are hardcoded here and used by the quest files; adding or renaming one must be done on both sides. 'contains' is case-sensitive and counts Python characters, not bytes.",
+          "files": [
+            "checker.py",
+            "quests/**"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quests",
+      "title": "Quest definitions: JSON files with a title and acceptance_criteria for checker.py",
+      "files": [
+        "quests/**"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "summary.json loaded and checked through check()"
+        }
+      ],
+      "risks": [
+        {
+          "text": "Each criterion needs type, value and description; the checker only understands contains, max_chars and min_chars. Any other type always fails.",
+          "files": [
+            "quests/**"
+          ]
+        },
+        {
+          "text": "tagline.json has no test: only summary.json is exercised by tests/test_checker.py, so mistakes in it go unnoticed.",
+          "files": [
+            "quests/tagline.json"
+          ]
+        },
+        {
+          "text": "Limits are in characters of the raw file text, including any trailing newline (e.g. summary's 280 limit).",
+          "files": [
+            "quests/summary.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "title": "pytest tests for check() using the real quest files",
+      "files": [
+        "tests/**"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "all checker tests"
+        }
+      ],
+      "risks": [
+        {
+          "text": "Tests import checker by editing sys.path to the repo root and open quest files with no encoding, so moving checker.py or quests/ breaks them.",
+          "files": [
+            "tests/test_checker.py"
+          ]
+        },
+        {
+          "text": "Only the summary quest and two cases are covered: no test for min_chars, unknown types, empty criteria, or the CLI/file input path.",
+          "files": [
+            "tests/test_checker.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root",
+      "title": "README and LICENSE",
+      "files": [
+        "LICENSE",
+        "README.md"
+      ],
+      "checks": [],
+      "risks": [
+        {
+          "text": "README is the only statement of the contract ('every quest has at least one checkable criterion'); the code does not enforce it, so a quest with an empty criteria list passes everything.",
+          "files": [
+            "README.md",
+            "checker.py"
+          ]
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "every-quest-has-criterion",
+      "rule": "Every quest file must have at least one checkable acceptance criterion, using only the types checker.py supports.",
+      "why": "An empty list makes the CLI pass every submission, and an unsupported type makes every submission fail.",
+      "files": [
+        "quests/**",
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest"
+        }
+      ]
+    },
+    {
+      "id": "exit-code-reflects-result",
+      "rule": "The CLI exits 0 only if all criteria passed, otherwise 1, and prints PASS/FAIL per criterion description.",
+      "why": "Callers and scripts rely on the exit status to accept or reject a submission.",
+      "files": [
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python checker.py quests/summary.json quests/tagline.json",
+          "why": "exits 1 when a criterion fails"
+        }
+      ]
+    }
+  ],
+  "ignore": []
+}

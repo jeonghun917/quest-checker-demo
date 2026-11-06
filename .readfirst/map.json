@@ -1,0 +1,170 @@
+{
+  "format": "readfirst/map@1",
+  "groups": [
+    {
+      "id": "quests",
+      "title": "Quest definitions: JSON files listing acceptance criteria that checker.py evaluates",
+      "files": [
+        "quests/**"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "the summary quest through the real checker"
+        }
+      ],
+      "risks": [
+        {
+          "text": "A criterion type other than contains, max_chars or min_chars (e.g. a typo) silently always fails instead of erroring.",
+          "files": [
+            "quests/**",
+            "checker.py"
+          ]
+        },
+        {
+          "text": "Every criterion needs a type and description, and a quest needs acceptance_criteria; a missing key crashes the checker with a KeyError, and a missing value on a numeric criterion crashes with a TypeError.",
+          "files": [
+            "quests/**"
+          ]
+        },
+        {
+          "text": "Character limits count the raw submission text including any trailing newline, so a limit like 280 or 60 is hit by a file ending in a newline.",
+          "files": [
+            "quests/summary.json",
+            "quests/tagline.json"
+          ]
+        },
+        {
+          "text": "tagline.json has no test; changing its limits is unverified.",
+          "files": [
+            "quests/tagline.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root",
+      "title": "The checker script that grades a submission file against a quest, plus README and license",
+      "files": [
+        "LICENSE",
+        "README.md",
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "pass and fail paths of the checker"
+        },
+        {
+          "run": "python checker.py quests/summary.json my_submission.txt",
+          "why": "the CLI end to end (README usage; exit code 1 on any failure)"
+        }
+      ],
+      "risks": [
+        {
+          "text": "The CLI opens the quest and submission files without an explicit encoding, so results depend on the platform locale and non-ASCII text can crash or change character counts.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "The submission is read raw: trailing newline and whitespace are kept and counted by min_chars/max_chars and compared by contains.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "Arguments are read from sys.argv with no validation and the files are never closed; missing arguments or files give a raw traceback, not a clean refusal.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "A quest with an empty acceptance_criteria list makes all([]) true, so any submission passes and the CLI exits 0.",
+          "files": [
+            "checker.py"
+          ]
+        },
+        {
+          "text": "Unknown criterion types fail (ok=False) rather than raise, and the exit code is the only machine signal of failure.",
+          "files": [
+            "checker.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "title": "Pytest tests for the checker against the summary quest",
+      "files": [
+        "tests/**"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "checker pass and fail paths"
+        }
+      ],
+      "risks": [
+        {
+          "text": "Tests locate quests/summary.json and checker.py by paths relative to the test file (and edit sys.path); renaming or moving either file breaks them.",
+          "files": [
+            "tests/test_checker.py"
+          ]
+        },
+        {
+          "text": "Only the summary quest is covered; min_chars, tagline and unknown criterion types have no tests.",
+          "files": [
+            "tests/test_checker.py"
+          ]
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "quest-has-criterion",
+      "rule": "Every quest file lists at least one acceptance criterion (README states this); the checker does not enforce it.",
+      "why": "With an empty list all([]) is true, so every submission passes and the quest checks nothing.",
+      "files": [
+        "quests/**",
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python checker.py quests/tagline.json README.md",
+          "why": "runs a quest through the CLI; with zero criteria it would print nothing and exit 0, so output must show criteria lines"
+        }
+      ]
+    },
+    {
+      "id": "exit-code-reflects-pass",
+      "rule": "checker.py exits 0 only when every criterion passed, and 1 otherwise.",
+      "why": "Callers and scripts use the exit code to accept or reject a submission.",
+      "files": [
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python checker.py quests/summary.json README.md",
+          "why": "runs the CLI on a real quest; expected to exit 1 (FAIL lines), showing the exit code follows the criteria"
+        }
+      ]
+    },
+    {
+      "id": "unknown-criterion-fails",
+      "rule": "An unrecognised criterion type counts as failed, never as passed.",
+      "why": "Passing it would let a submission through unchecked.",
+      "files": [
+        "checker.py"
+      ],
+      "checks": [
+        {
+          "run": "python -m pytest",
+          "why": "runs the checker tests; none covers this path yet, so read checker.py:14-15 when changing it"
+        }
+      ]
+    }
+  ],
+  "ignore": []
+}
